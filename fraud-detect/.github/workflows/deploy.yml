@@ -1,0 +1,44 @@
+name: Deploy API
+
+on:
+  workflow_run:
+    workflows: ["Train Model"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fraud-detect
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build Docker image
+        run: docker build -t fraud-detect-api:${{ github.sha }} .
+
+      - name: Smoke test API
+        env:
+          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+          MODEL_NAME: fraud-detection-model
+          MODEL_STAGE: Production
+        run: |
+          docker run -d -p 5000:5000 \
+            -e MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI \
+            -e MODEL_NAME=$MODEL_NAME \
+            -e MODEL_STAGE=$MODEL_STAGE \
+            fraud-detect-api:${{ github.sha }}
+          sleep 5
+          curl --fail http://localhost:5000/health
