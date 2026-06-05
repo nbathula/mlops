@@ -1,4 +1,4 @@
-name: Deploy API
+name: Deploy to Databricks Serving
 
 on:
   workflow_run:
@@ -24,21 +24,29 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install databricks-sdk mlflow
 
-      - name: Build Docker image
-        run: docker build -t fraud-detect-api:${{ github.sha }} .
-
-      - name: Smoke test API
+      - name: Get latest registered model version
+        id: model_version
         env:
-          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-          MODEL_NAME: fraud-detection-model
-          MODEL_STAGE: Production
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
         run: |
-          docker run -d -p 5000:5000 \
-            -e MLFLOW_TRACKING_URI=$MLFLOW_TRACKING_URI \
-            -e MODEL_NAME=$MODEL_NAME \
-            -e MODEL_STAGE=$MODEL_STAGE \
-            fraud-detect-api:${{ github.sha }}
-          sleep 5
-          curl --fail http://localhost:5000/health
+          VERSION=$(python3 -c "
+          import mlflow, os
+          mlflow.set_tracking_uri('databricks')
+          client = mlflow.tracking.MlflowClient()
+          versions = client.search_model_versions(\"name='workspace.default.fraud-detection-model'\")
+          latest = sorted(versions, key=lambda v: int(v.version))[-1]
+          print(latest.version)
+          ")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Deploying model version $VERSION"
+
+      - name: Update Databricks Model Serving endpoint
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          MODEL_NAME: workspace.default.fraud-detection-model
+          MODEL_VERSION: ${{ steps.model_version.outputs.version }}
+        run: python scripts/deploy_serving.py

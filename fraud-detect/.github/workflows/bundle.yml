@@ -1,0 +1,29 @@
+name: Deploy Databricks Bundle
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "fraud-detect/notebooks/**"
+      - "fraud-detect/databricks.yml"
+      - "fraud-detect/pipelines/**"
+  workflow_dispatch:
+
+jobs:
+  bundle-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fraud-detect
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Databricks CLI
+        run: curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+
+      - name: Deploy bundle
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: databricks bundle deploy

@@ -7,11 +7,6 @@ on:
       - "fraud-detect/src/**"
       - "fraud-detect/data/**"
   workflow_dispatch:
-    inputs:
-      data_path:
-        description: "S3 path to training data"
-        required: false
-        default: "s3://fraud-detect-artifacts/raw/creditcard.csv"
 
 jobs:
   train:
@@ -32,21 +27,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Train model on Databricks
+      - name: Train and register model to Databricks
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
-          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-          MODEL_NAME: fraud-detection-model
+          MLFLOW_TRACKING_URI: databricks
+          MLFLOW_EXPERIMENT_NAME: ${{ secrets.MLFLOW_EXPERIMENT_NAME }}
+          MODEL_NAME: workspace.default.fraud-detection-model
         run: python -m src.training.train
-
-      - name: Evaluate and promote model
-        env:
-          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
-          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
-          MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
-          MODEL_NAME: fraud-detection-model
-        run: python -m src.evaluation.evaluate
