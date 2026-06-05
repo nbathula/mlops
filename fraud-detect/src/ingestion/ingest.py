@@ -2,10 +2,17 @@ import os
 import boto3
 import pandas as pd
 from loguru import logger
-from pyspark.sql import SparkSession
+
+try:
+    from pyspark.sql import SparkSession
+    SPARK_AVAILABLE = True
+except ImportError:
+    SPARK_AVAILABLE = False
 
 
 def get_spark():
+    if not SPARK_AVAILABLE:
+        raise RuntimeError("PySpark is not installed. Use load_sample_data() for local development.")
     return SparkSession.builder.appName("fraud-detect-ingestion").getOrCreate()
 
 

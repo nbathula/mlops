@@ -1,0 +1,25 @@
+bundle:
+  name: fraud-detect
+
+variables:
+  s3_bucket:
+    default: fraud-detect-artifacts
+  model_name:
+    default: fraud-detection-model
+  mlflow_experiment:
+    default: /fraud-detect/experiments/fraud-detection
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-2bb4a99b-a265.cloud.databricks.com
+
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-2bb4a99b-a265.cloud.databricks.com
+
+include:
+  - pipelines/databricks_workflow.yml

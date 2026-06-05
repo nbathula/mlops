@@ -3,54 +3,61 @@ resources:
     fraud_detect_training_pipeline:
       name: fraud-detect-training-pipeline
       schedule:
-        quartz_cron_expression: "0 0 2 * * ?"  # Daily at 2am
+        quartz_cron_expression: "0 0 2 * * ?"
         timezone_id: UTC
         pause_status: UNPAUSED
+
+      environments:
+        - environment_key: ml_env
+          spec:
+            client: "1"
+            dependencies:
+              - boto3
+              - loguru
+              - xgboost
+              - imbalanced-learn
+              - scikit-learn
+              - scipy
 
       tasks:
         - task_key: ingest_data
           notebook_task:
-            notebook_path: /fraud-detect/notebooks/01_ingest
+            notebook_path: ${workspace.file_path}/notebooks/01_ingest
             base_parameters:
               s3_bucket: ${var.s3_bucket}
-          job_cluster_key: ml_cluster
+          environment_key: ml_env
 
         - task_key: build_features
           depends_on:
             - task_key: ingest_data
           notebook_task:
-            notebook_path: /fraud-detect/notebooks/02_features
-          job_cluster_key: ml_cluster
+            notebook_path: ${workspace.file_path}/notebooks/02_features
+          environment_key: ml_env
 
         - task_key: train_model
           depends_on:
             - task_key: build_features
           notebook_task:
-            notebook_path: /fraud-detect/notebooks/03_train
+            notebook_path: ${workspace.file_path}/notebooks/03_train
             base_parameters:
-              mlflow_experiment: /fraud-detect/experiments/fraud-detection
-              model_name: fraud-detection-model
-          job_cluster_key: ml_cluster
+              mlflow_experiment: ${var.mlflow_experiment}
+              model_name: ${var.model_name}
+          environment_key: ml_env
 
         - task_key: evaluate_and_promote
           depends_on:
             - task_key: train_model
           notebook_task:
-            notebook_path: /fraud-detect/notebooks/04_evaluate
-          job_cluster_key: ml_cluster
+            notebook_path: ${workspace.file_path}/notebooks/04_evaluate
+            base_parameters:
+              model_name: ${var.model_name}
+          environment_key: ml_env
 
         - task_key: drift_check
           depends_on:
             - task_key: evaluate_and_promote
           notebook_task:
-            notebook_path: /fraud-detect/notebooks/05_drift
-          job_cluster_key: ml_cluster
-
-      job_clusters:
-        - job_cluster_key: ml_cluster
-          new_cluster:
-            spark_version: "15.4.x-scala2.12"
-            node_type_id: i3.xlarge
-            num_workers: 2
-            spark_env_vars:
-              MLFLOW_TRACKING_URI: "databricks"
+            notebook_path: ${workspace.file_path}/notebooks/05_drift
+            base_parameters:
+              s3_bucket: ${var.s3_bucket}
+          environment_key: ml_env

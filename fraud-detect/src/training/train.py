@@ -37,7 +37,6 @@ def train(data_path: str = "data/creditcard.csv"):
         "max_depth": 6,
         "learning_rate": 0.05,
         "scale_pos_weight": 1,
-        "use_label_encoder": False,
         "eval_metric": "logloss",
         "random_state": 42,
     }
@@ -63,6 +62,7 @@ def train(data_path: str = "data/creditcard.csv"):
             model,
             artifact_path="model",
             registered_model_name=os.getenv("MODEL_NAME", "fraud-detection-model"),
+            input_example=X_test.iloc[:5],
         )
 
         logger.info(f"ROC-AUC: {auc:.4f}")
