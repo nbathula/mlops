@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# GCP credentials
+*.json
+application_default_credentials.json
+
+# Terraform state
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
+# Data files (large, loaded to GCS instead)
+data/*.csv
+
+# Model artifacts (stored in GCS)
+*.joblib
+/tmp/
+
+# OS
+.DS_Store
