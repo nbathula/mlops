@@ -197,3 +197,70 @@ print('Endpoint deleted')
 | Vertex AI Models | https://console.cloud.google.com/vertex-ai/models?project=serious-bliss-256222 |
 | Vertex AI Endpoints | https://console.cloud.google.com/vertex-ai/endpoints?project=serious-bliss-256222 |
 | Vertex AI Experiments | https://console.cloud.google.com/vertex-ai/experiments?project=serious-bliss-256222 |
+
+---
+
+## Future Improvements
+
+### 1. Replace Manual Scripts with Proper GCP Services
+
+| Current | Recommended GCP Service | Benefit |
+|---|---|---|
+| Manual CSV upload (`upload_data.py`) | Cloud Storage Transfer Service | Scheduled, monitored, retriable ingestion |
+| Raw `.joblib` file in GCS | Artifact Registry | Versioned, scannable model + container artifacts |
+| BigQuery SQL in Python script | Vertex AI Feature Store | Reusable, shareable features across models and teams |
+| Manual `aiplatform.log_metrics()` | Vertex AI Experiments (full SDK) | Auto-log datasets, parameters, metrics, and lineage |
+| Manual endpoint update | Vertex AI Model Monitoring | Automatic drift detection and alerting post-deployment |
+
+---
+
+### 2. CI/CD with Vertex AI Pipelines
+
+Replace the current 3-script manual flow (`upload_data.py` → `train_vertex.py` → `deploy_endpoint.py`) with a **Vertex AI Pipeline** — a fully managed DAG that runs on GCP and is triggered automatically via GitHub Actions on push to `main`.
+
+**Pipeline DAG:**
+
+```
+Step 1: ingest_data
+        Upload CSV → GCS → BigQuery tables
+
+Step 2: feature_engineering
+        BigQuery SQL join → ml_churn.features table
+
+Step 3: train_model
+        Fetch features → train RandomForest → save artifact to GCS
+
+Step 4: evaluate_model
+        Compute ROC-AUC → pass if ≥ threshold, else fail pipeline
+
+Step 5: register_model
+        Upload artifact → Vertex AI Model Registry (new version)
+
+Step 6: deploy_endpoint
+        Deploy latest model version → Vertex AI Endpoint
+```
+
+**GitHub Actions trigger:**
+```yaml
+on:
+  push:
+    branches: [main]
+    paths:
+      - data/**
+      - scripts/**
+jobs:
+  run-pipeline:
+    steps:
+      - run: python pipelines/churn_pipeline.py
+```
+
+This eliminates manual steps, adds a quality gate (evaluate_model), provides full audit trail, and enables automatic rollback if a new version underperforms.
+
+---
+
+### 3. Additional Enhancements
+
+- **Terraform remote state** — store `terraform.tfstate` in GCS instead of locally so the team can share infrastructure state
+- **Model monitoring** — enable Vertex AI Model Monitoring on the endpoint to detect feature drift and skew automatically
+- **Batch prediction** — add a scheduled Vertex AI Batch Prediction job for scoring large customer lists overnight
+- **Alerting** — Cloud Monitoring alerts when endpoint latency spikes or prediction volume drops unexpectedly
