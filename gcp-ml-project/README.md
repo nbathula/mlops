@@ -258,7 +258,65 @@ This eliminates manual steps, adds a quality gate (evaluate_model), provides ful
 
 ---
 
-### 3. Additional Enhancements
+### 3. Vertex AI AutoML Tabular
+
+Instead of writing custom training code, **AutoML Tabular** automatically tries dozens of algorithms and hyperparameter combinations and picks the best model — no ML expertise required.
+
+**What it replaces:**
+
+| Current (`train_vertex.py`) | AutoML |
+|---|---|
+| Manually chose RandomForest | Tries RF, XGBoost, LightGBM, Neural Net, ensembles |
+| Manually set `n_estimators=100` | Hyperparameter search is automatic |
+| Wrote training code (~80 lines) | Zero training code |
+| No feature importance | Built-in SHAP feature importance |
+
+**AutoML training code (~20 lines):**
+
+```python
+from google.cloud import aiplatform
+
+aiplatform.init(project="serious-bliss-256222", location="us-central1")
+
+# Point AutoML at your BigQuery features table
+dataset = aiplatform.TabularDataset.create(
+    display_name="churn-dataset",
+    bq_source="bq://serious-bliss-256222.ml_churn.features",
+)
+
+# Let AutoML find the best model — no algorithm choice needed
+job = aiplatform.AutoMLTabularTrainingJob(
+    display_name="churn-automl",
+    optimization_prediction_type="classification",
+    optimization_objective="maximize-au-roc",
+)
+
+model = job.run(
+    dataset=dataset,
+    target_column="label",
+    budget_milli_node_hours=1000,   # 1 training hour budget
+    model_display_name="churn-automl-model",
+)
+# model is auto-registered to Vertex AI Model Registry
+```
+
+**When to use AutoML vs Custom Training:**
+
+| | AutoML | Custom (current) |
+|---|---|---|
+| Code to write | ~20 lines | ~80 lines |
+| Algorithm choice | Automatic | Manual |
+| Hyperparameter tuning | Built-in | Manual |
+| Feature importance | Built-in (SHAP) | Manual |
+| Cost | Higher (per node-hour) | Lower |
+| Control | Low | Full |
+| Best for | Baselines, non-ML teams | Production custom logic |
+
+**Recommended approach:** Run AutoML first to get a benchmark AUC and understand feature importance, then decide if a custom model is worth the investment.
+
+---
+
+### 4. Additional Enhancements
 
 - **Terraform remote state** — store `terraform.tfstate` in GCS instead of locally so the team can share infrastructure state
 - **Model monitoring** — enable Vertex AI Model Monitoring on the endpoint to detect feature drift and skew automatically
